@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>汇率转换计算器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        .calculator {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #34495e;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        input:focus, select:focus {
+            border-color: #3498db;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+        
+        .currency-row {
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+        }
+        
+        .currency-row .input-group {
+            flex: 1;
+        }
+        
+        .swap-button {
+            display: flex;
+            justify-content: center;
+            margin: 10px 0;
+        }
+        
+        .swap-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 18px;
+        }
+        
+        .swap-btn:hover {
+            background: #2980b9;
+            transform: rotate(180deg);
+        }
+        
+        .result {
+            background: linear-gradient(135deg, #3498db, #2ecc71);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            margin-top: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .result h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        
+        .conversion-result {
+            font-size: 28px;
+            font-weight: 700;
+            margin: 15px 0;
+        }
+        
+        .update-time {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 10px;
+        }
+        
+        @media (max-width: 480px) {
+            .calculator {
+                padding: 20px;
+            }
+            
+            .currency-row {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .conversion-result {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="calculator">
+            <h1>汇率转换计算器</h1>
+            <p class="subtitle">实时汇率转换，支持全球主流货币</p >
+            
+            <div class="input-group">
+                <label for="amount">金额</label>
+                <input type="number" id="amount" placeholder="输入金额" value="1" min="0" step="0.01">
+            </div>
+            
+            <div class="currency-row">
+                <div class="input-group">
+                    <label for="fromCurrency">从货币</label>
+                    <select id="fromCurrency">
+                        <option value="CNY">人民币 (CNY)</option>
+                        <option value="USD">美元 (USD)</option>
+                        <option value="EUR">欧元 (EUR)</option>
+                        <option value="JPY">日元 (JPY)</option>
+                        <option value="GBP">英镑 (GBP)</option>
+                    </select>
+                </div>
+                
+                <div class="swap-button">
+                    <button class="swap-btn" id="swapCurrencies">⇄</button>
+                </div>
+                
+                <div class="input-group">
+                    <label for="toCurrency">到货币</label>
+                    <select id="toCurrency">
+                        <option value="USD">美元 (USD)</option>
+                        <option value="CNY">人民币 (CNY)</option>
+                        <option value="EUR">欧元 (EUR)</option>
+                        <option value="JPY">日元 (JPY)</option>
+                        <option value="GBP">英镑 (GBP)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="result">
+                <h3>转换结果</h3>
+                <div class="conversion-result" id="conversionResult">1 CNY ≈ 0.14 USD</div>
+                <div class="update-time" id="updateTime">汇率更新于: 2023-10-01 12:00</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 汇率数据（模拟实时汇率API数据）
+        const exchangeRates = {
+            "USD": 1,
+            "CNY": 7.25,
+            "EUR": 0.93,
+            "JPY": 155.50,
+            "GBP": 0.80
+        };
+
+        // 获取DOM元素
+        const amountInput = document.getElementById('amount');
+        const fromCurrencySelect = document.getElementById('fromCurrency');
+        const toCurrencySelect = document.getElementById('toCurrency');
+        const resultDisplay = document.getElementById('conversionResult');
+        const updateTimeDisplay = document.getElementById('updateTime');
+        const swapButton = document.getElementById('swapCurrencies');
+
+        // 计算汇率转换
+        function calculateConversion() {
+            const amount = parseFloat(amountInput.value);
+            const fromCurrency = fromCurrencySelect.value;
+            const toCurrency = toCurrencySelect.value;
+            
+            if (isNaN(amount) || amount <= 0) {
+                resultDisplay.textContent = '请输入有效金额';
+                return;
+            }
+            
+            // 转换为美元中间值，再转换为目标货币
+            const amountInUSD = amount / exchangeRates[fromCurrency];
+            const convertedAmount = amountInUSD * exchangeRates[toCurrency];
+            
+            // 显示结果
+            resultDisplay.textContent = 
+                `${amount} ${fromCurrency} = ${convertedAmount.toFixed(2)} ${toCurrency}`;
+            
+            // 更新汇率时间
+            updateTimeDisplay.textContent = `汇率更新于: ${new Date().toLocaleString()}`;
+        }
+
+        // 交换货币
+        function swapCurrencies() {
+            const fromValue = fromCurrencySelect.value;
+            const toValue = toCurrencySelect.value;
+            
+            fromCurrencySelect.value = toValue;
+            toCurrencySelect.value = fromValue;
+            
+            calculateConversion();
+        }
+
+        // 添加事件监听器
+        amountInput.addEventListener('input', calculateConversion);
+        fromCurrencySelect.addEventListener('change', calculateConversion);
+        toCurrencySelect.addEventListener('change', calculateConversion);
+        swapButton.addEventListener('click', swapCurrencies);
+
+        // 初始化计算
+        calculateConversion();
+    </script>
+</body>
+</html>

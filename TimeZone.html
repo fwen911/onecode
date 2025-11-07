@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时区转换器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#6366F1',
+                        accent: '#10B981',
+                        neutral: '#1F2937',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .shadow-soft {
+                box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+            }
+            .transition-custom {
+                transition: all 0.3s ease;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans">
+    <div class="container mx-auto px-4 py-12 max-w-4xl">
+        <!-- 页面标题 -->
+        <div class="text-center mb-12">
+            <h1 class="text-[clamp(2rem,5vw,3rem)] font-bold text-neutral mb-4">
+                <i class="fa fa-globe text-primary mr-3"></i>时区转换器
+            </h1>
+            <p class="text-gray-600 text-lg">轻松在不同时区之间转换时间</p>
+        </div>
+        
+        <!-- 转换器卡片 -->
+        <div class="bg-white rounded-2xl shadow-soft p-6 md:p-8 mb-8 transform hover:scale-[1.01] transition-custom">
+            <form id="converterForm" class="space-y-6">
+                <!-- 源时间输入 -->
+                <div>
+                    <label for="sourceTime" class="block text-sm font-medium text-gray-700 mb-1">
+                        <i class="fa fa-clock-o text-primary mr-1"></i>源时间
+                    </label>
+                    <input 
+                        type="datetime-local" 
+                        id="sourceTime" 
+                        class="w-full px-4 py-3 rounded-lg border border border-gray-300 focus:ring-2 focus:ring-primary focus:border-primary transition-custom"
+                        required
+                    >
+                    <p class="text-xs text-gray-500 mt-1">格式: 年-月-日 时:分</p>
+                </div>
+                
+                <!-- 时区选择 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="sourceTimezone" class="block text-sm font-medium text-gray-700 mb-1">
+                            <i class="fa fa-map-marker text-primary mr-1"></i>源时区
+                        </label>
+                        <select 
+                            id="sourceTimezone" 
+                            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-primary-primary transition-custom"
+                            required
+                        >
+                            <option value="">选择源时区</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="targetTimezone" class="block text-sm font-medium text-gray-700 mb-1">
+                            <i class="fa fa-flag text-secondary mr-1"></i>目标时区
+                        </label>
+                        <select 
+                            id="targetTimezone" 
+                            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-secondary focus:border-secondary transition-custom"
+                            required
+                        >
+                            <option value="">选择目标时区</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- 转换按钮 -->
+                <div class="pt-2">
+                    <button 
+                        type="submit" 
+                        class="w-full bg-primary hover:bg-primary/90 text-white font-medium py-3 px-6 rounded-lg transition-custom flex items items-center justify-center"
+                    >
+                        <i class="fa fa-exchange mr-2"></i>转换时间
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- 结果显示 -->
+        <div id="resultContainer" class="hidden bg-white rounded-2xl shadow-soft p-6 md:p-8 transition-custom">
+            <h2 class="text-xl font-semibold text-neutral mb-4 flex items-center">
+                <i class="fa fa-check-circle text-accent mr-2"></i>转换结果
+            </h2>
+            <div id="resultContent" class="text-2xl font-medium text-gray-800">
+                <!-- 结果将在这里显示 -->
+            </div>
+        </div>
+        
+        <!-- 状态消息 -->
+        <div id="messageContainer" class="hidden fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg transition-custom z-50">
+            <p id="messageContent" class="text-white font-medium"></p>
+        </div>
+    </div>
+
+    <script>
+        // 时区数据 - 包含主要城市和对应的时区偏移
+        const timezones = {
+            'UTC': 'UTC',
+            'Asia/Shanghai': '中国 上海 (UTC+8)',
+            'Asia/Tokyo': '日本 东京 (UTC+9)',
+            'Asia/Seoul': '韩国 首尔 (UTC+9)',
+            'Asia/Hong_Kong': '中国 香港 (UTC+8)',
+            'Asia/Taipei': '中国 台北 (UTC+8)',
+            'Asia/Singapore': '新加坡 (UTC+8)',
+            'Asia/Kolkata': '印度 新德里 (UTC+5:30)',
+            'Europe/London': '英国 伦敦 (UTC±0)',
+            'Europe/Paris': '法国 巴黎 (UTC+1)',
+            'Europe/Berlin': '德国 柏林 (UTC+1)',
+            'Europe/Moscow': '俄罗斯 莫斯科 (UTC+3)',
+            'Africa/Johannesburg': '南非 约翰内斯堡 (UTC+2)',
+            'America/New_York': '美国 纽约 (UTC-4/UTC-5)',
+            'America/Los_Angeles': '美国 洛杉矶 (UTC-7/UTC-8)',
+            'America/Chicago': '美国 芝加哥 (UTC-5/UTC-6)',
+            'America/Toronto': '加拿大 多伦多 (UTC-4/UTC-5)',
+            'Australia/Sydney': '澳大利亚 悉尼 (UTC+10/UTC+11)',
+            'Australia/Melbourne': '澳大利亚 墨尔本 (UTC+10/UTC+11)',
+            'Pacific/Midway': '中途岛 (UTC-11)',
+            'Pacific/Honolulu': '檀香山 (UTC-10)',
+            'America/Anchorage': '安克雷奇 (UTC-9)',
+            'America/Tijuana': '蒂华纳 (UTC-8)',
+            'America/Phoenix': '凤凰城 (UTC-7)',
+            'America/Chihuahua': '奇瓦瓦 (UTC-7)',
+            'America/Denver': '丹佛 (UTC-7/UTC-6)',
+            'America/Chicago': '芝加哥 (UTC-6/UTC-5)',
+            'America/Mexico_City': '墨西哥城 (UTC-6/UTC-5)',
+            'America/Regina': '里贾纳 (UTC-6)',
+            'America/Bogota': '波哥大 (UTC-5)',
+            'America/New_York': '纽约 (UTC-5/UTC-4)',
+            'America/Toronto': '多伦多 (UTC-5/UTC-4)',
+            'America/Caracas': '加拉加斯 (UTC-4)',
+            'America/Santiago': '圣地亚哥 (UTC-4/UTC-3)',
+            'America/Saopaulo': '圣保罗 (UTC-3)',
+            'America/Buenosaires': '布宜诺斯艾利斯 (UTC-3)',
+            'Atlantic/Azores': '亚速尔群岛 (UTC-1)',
+            'Africa/Lagos': '拉各斯 (UTC+1)',
+            'Europe/London': '伦敦 (UTC±0/UTC+1)',
+            'Europe/Amsterdam': '阿姆斯特丹 (UTC+1)',
+            'Europe/Istanbul': '伊斯坦布尔 (UTC+3)',
+            'Asia/Dubai': '迪拜 (UTC+4)',
+            'Asia/Karachi': '卡拉奇 (UTC+5)',
+            'Asia/Dhaka': '达卡 (UTC+6)',
+            'Asia/Bangkok': '曼谷 (UTC+7)',
+            'Asia/Shanghai': '上海 (UTC+8)',
+            'Asia/Tokyo': '东京 (UTC+9)',
+            'Asia/Seoul': '首尔 (UTC+9)',
+            'Australia/Perth': '珀斯 (UTC+8)',
+            'Australia/Darwin': '达尔文 (UTC+9:30)',
+            'Australia/Brisbane': '布里斯班 (UTC+10)',
+            'Pacific/Guam': '关岛 (UTC+10)',
+            'Pacific/Fiji': '斐济 (UTC+12)',
+            'Pacific/Auckland': '奥克兰 (UTC+12/UTC+13)'
+        };
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 设置默认时间为当前时间
+            const now = new Date();
+            const formattedDateTime = now.toISOString().slice(0, 16);
+            document.getElementById('sourceTime').value = formattedDateTime;
+            
+            // 加载时区列表
+            populateTimezoneSelectors();
+            
+            // 表单提交事件
+            document.getElementById('converterForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                convertTime();
+            });
+        });
+        
+        // 填充时区下拉选择框
+        function populateTimezoneSelectors() {
+            const sourceSelect = document.getElementById('sourceTimezone');
+            const targetSelect = document.getElementById('targetTimezone');
+            
+            // 添加时区选项
+            Object.entries(timezones).forEach(([code, name]) => {
+                // 为源时区添加选项
+                const sourceOption = document.createElement('option');
+                sourceOption.value = code;
+                sourceOption.textContent = name;
+                sourceSelect.appendChild(sourceOption);
+                
+                // 为目标时区添加选项
+                const targetOption = document.createElement('option');
+                targetOption.value = code;
+                targetOption.textContent = name;
+                targetSelect.appendChild(targetOption);
+            });
+            
+            // 默认选择北京作为源时区，纽约作为目标时区
+            sourceSelect.value = 'Asia/Shanghai';
+            targetSelect.value = 'America/New_York';
+        }
+        
+        // 转换时间
+        function convertTime() {
+            const sourceTimeValue = document.getElementById('sourceTime').value;
+            const sourceTimezone = document.getElementById('sourceTimezone').value;
+            const targetTimezone = document.getElementById('targetTimezone').value;
+            
+            if (!sourceTimeValue || !sourceTimezone || !targetTimezone) {
+                showMessage('请填写所有必填字段', 'error');
+                return;
+            }
+            
+            try {
+                // 将输入的时间转换为Date对象
+                const sourceDate = new Date(sourceTimeValue);
+                
+                if (isNaN(sourceDate.getTime())) {
+                    throw new Error('无效的时间格式');
+                }
+                
+                // 获取源时区和目标时区的偏移值
+                const sourceOffset = getTimezoneOffset(sourceTimezone);
+                const targetOffset = getTimezoneOffset(targetTimezone);
+                
+                // 计算时间差（分钟）
+                const offsetDiff = targetOffset - sourceOffset;
+                
+                // 计算转换后的时间
+                const convertedDate = new Date(sourceDate.getTime() + offsetDiff * 60000);
+                
+                // 显示结果
+                displayResult(sourceDate, convertedDate, sourceTimezone, targetTimezone);
+                showMessage('时间转换成功', 'success');
+                
+            } catch (error) {
+                showMessage(error.message, 'error');
+            }
+        }
+        
+        // 获取时区偏移（分钟）
+        function getTimezoneOffset(timezone) {
+            // 对于UTC，直接返回0
+            if (timezone === 'UTC') return 0;
+            
+            // 创建一个日期对象，用于获取特定时区的偏移
+            const date = new Date();
+            
+            // 使用Intl.DateTimeFormat获取时区信息
+            const formatter = new Intl.DateTimeFormat('en', {
+                timeZone: timezone,
+                timeZoneName: 'short'
+            });
+            
+            const parts = formatter.formatToParts(date);
+            let offset = 0;
+            
+            // 从格式化的部分中提取时区偏移
+            for (const part of parts) {
+                if (part.type === 'timeZoneName') {
+                    const tzName = part.value;
+                    // 解析类似"GMT+8"的时区名称
+                    if (tzName.startsWith('GMT')) {
+                        const offsetStr = tzName.substring(3);
+                        offset = parseInt(offsetStr, 10) * 60; // 转换为分钟
+                    }
+                    break;
+                }
+            }
+            
+            return offset;
+        }
+        
+        // 显示转换结果
+        function displayResult(sourceDate, convertedDate, sourceTimezone, targetTimezone) {
+            const sourceTimeFormatted = formatDateTime(sourceDate);
+            const convertedTimeFormatted = formatDateTime(convertedDate);
+            
+            // 获取时区显示名称
+            const sourceTimezoneName = timezones[sourceTimezone];
+            const targetTimezoneName = timezones[targetTimezone];
+            
+            // 更新UI显示结果
+            const resultContent = document.getElementById('resultContent');
+            resultContent.innerHTML = `
+                <div class="p-4 border-l-4 border-primary bg-blue-50 rounded mb-4">
+                    <p class="text-gray-800">${sourceTimeFormatted}</p>
+                    <p class="text-sm text-gray-600 mt-1">${sourceTimezoneName}</p>
+                </div>
+                <div class="text-center my-2">
+                    <i class="fa fa-arrow-down text-gray-400"></i>
+                </div>
+                <div class="p-4 border-l-4 border-accent bg-green-50 rounded">
+                    <p class="text-gray-800 font-medium">${convertedTimeFormatted}</p>
+                    <p class="text-sm text-gray-600 mt-1">${targetTimezoneName}</p>
+                </div>
+            `;
+            
+            // 显示结果容器
+            document.getElementById('resultContainer').classList.remove('hidden');
+        }
+        
+        // 格式化日期时间显示
+        function formatDateTime(date) {
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'long',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
+        }
+        
+        // 显示消息提示
+        function showMessage(text, type) {
+            const container = document.getElementById('messageContainer');
+            const content = document.getElementById('messageContent');
+            
+            content.textContent = text;
+            
+            // 设置消息类型样式
+            if (type === 'success') {
+                container.className = 'fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg bg-accent text-white transition-custom z-50';
+            } else {
+                container.className = 'fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg bg-red-500 text-white transition-custom z-50';
+            }
+            
+            // 显示消息
+            container.classList.remove('hidden');
+            
+            // 3秒后隐藏消息
+            setTimeout(() => {
+                container.classList.add('hidden');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
+    
